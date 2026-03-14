@@ -1,0 +1,172 @@
+# -*- coding: utf-8 -*-
+# 论文出图配置（由 scripts/generate_paper_plots.py 使用）
+# 默认目标：面向《Engineering Structures》风格（Times New Roman、双栏宽、蓝色系）。
+
+schema_version: "1.0"
+
+# 主训练/预测配置（用于复用数据路径、特征列、目标列、models_dir、plots_dir 等）
+base_config: configs/config_optimized.yaml
+
+inputs:
+  # 模型文件名（默认 composite_model.pkl：训练脚本保存的“测试集最佳模型别名”）
+  model_filename: composite_model.pkl
+
+  # 原始数据 CSV（默认取 base_config.data.data_path；这里可覆盖）
+  # 若 base_config.data.split_dataset=true 且此处为 null，将自动使用 split_paths 中的对应文件
+  dataset_csv: null
+
+  # 需要出图的数据分割：test/train/all
+  split: test
+
+  # SHAP/出图采样数量（用于加速；对全量出图可调大或设为 null 表示全量）
+  sample_size: null
+
+data_sources:
+  # 数据源优先级：优先模型+原始CSV现算；也可打开读取 predictions/evaluation 的兼容出图
+  prefer_from_model: true
+
+  predictions:
+    enabled: true
+    # 为空则自动扫描 base_config.output.predictions_dir 下的 *.csv
+    files: []
+    # files 为空时是否扫描：这里默认启用，但用 glob 限定为 test_predictions*，避免扫到太多文件
+    scan_when_empty: true
+    glob: test_predictions*.csv
+
+  evaluation:
+    enabled: true
+    # 为空则使用 base_config.output.evaluation_dir 下的默认文件名
+    cv_results_all_outputs: cv_results_all_outputs.csv
+    test_results_all_models: test_results_all_models.csv
+
+column_mapping:
+  # 预测列前缀
+  predicted_prefix: Predicted_
+
+  # 真实列优先匹配的前缀列表；若都不存在则回退为“原目标列名”
+  actual_prefixes:
+    - Actual_
+
+  # 当同时存在 Actual_<target> 与 <target> 时选择策略：prefer_actual_prefix / prefer_raw_target
+  actual_fallback: prefer_actual_prefix
+
+  # evaluation 表的指标列名兼容（解决 R²_mean 的 Unicode 上标 ² 问题）
+  metric_aliases:
+    r2_mean:
+      - R²_mean
+      - R2_mean
+      - r2_mean
+    r2_std:
+      - R²_std
+      - R2_std
+      - r2_std
+    overall_r2:
+      - Overall_R²
+      - Overall_R2
+      - overall_r2
+
+output:
+  # 输出到 base_config.output.plots_dir 下的子目录（统一归档论文图）
+  subdir: paper
+
+  # 输出格式与分辨率
+  formats: [png]
+  dpi: 300
+
+style:
+  # Engineering Structures 风格（近似）：Times New Roman、白底、轻网格、线宽适中
+  font_family: Times New Roman
+  font_size: 9
+
+  # 默认双栏图宽；可改为 single_column
+  figure_layout: double_column   # single_column | double_column
+
+  # 单/双栏宽（inches），常见：单栏约 3.5in，双栏约 7.16in
+  single_column_width_in: 3.5
+  double_column_width_in: 7.16
+
+  # 默认高度比例（height = width * aspect）
+  aspect: 0.70
+
+  # 配色（偏蓝；可自定义）
+  palette:
+    - "#a0e0f4"  # primary
+    - "#6BAED6"
+    - "#4292C6"
+    - "#2171B5"
+    - "#08519C"
+
+  # 线条/点大小
+  line_width: 1.2
+  marker_size: 14
+
+  # 网格与坐标轴
+  grid: true
+  spine_width: 0.8
+
+plot_groups:
+  prediction:
+    enabled: true
+    plots: [parity_per_target, parity_combined]
+    settings:
+      show_identity_line: true
+      annotate_metrics: true
+      metrics: [r2, rmse, mae]
+
+  residual:
+    enabled: true
+    plots: [residual_vs_pred, residual_hist]
+    settings:
+      bins: 25
+      all_models: true
+      models: []
+
+  distribution:
+    enabled: true
+    plots: [target_hist, target_box]
+    settings:
+      bins: 30
+
+  comparison:
+    enabled: true
+    plots: [cv_r2_bar, test_overall_r2_bar]
+
+  shap:
+    enabled: true
+    plots: [summary_per_target, dependence_per_feature, bar_per_target, waterfall_per_target]
+    settings:
+      # SHAP 计算样本数（若 inputs.sample_size 非空优先生效）
+      sample_size: 300
+      # 默认不允许 KernelExplainer（非常慢，容易卡住）；仅在确有需要时开启。
+      allow_kernel: true
+
+      # 依赖图颜色映射的交互特征（留空=自动）
+      dependence_interaction: null
+
+      # 若无法计算 summary（例如 Stacking/非树模型），则尝试读取 output.shap_dir 下已存在的 shap_values*.csv
+      # 并输出 mean(|SHAP|) 的重要性条形图，保证论文图可用。
+      fallback_to_csv_bar: true
+      bar_top_k: 12
+      # Waterfall 使用的样本索引（0 表示第一行）
+      waterfall_index: 0
+
+  hyperopt:
+    enabled: true
+    plots: [optuna_history]
+    settings:
+      # 自动扫描 optuna_studies/*_trials.csv
+      enabled_scan: true
+      # 是否绘制参数重要性（需要 *_study.pkl 或 optuna.importance 支持）
+      plot_importance: false
+      # 超过该试验数则跳过重要性计算（避免过慢）
+      max_importance_trials: 200
+      # 汇总最优超参数为 CSV/图
+      summary_best_params: true
+      summary_best_params_plot: true
+      # 表格布局: long(模型/调优结果/意义) 或 wide(模型 x 参数列)
+      summary_table_layout: long
+      # 表格图最多显示的行/列（0 表示不限制）
+      summary_max_rows: 0
+      summary_max_cols: 0
+      # 参数含义（可按需补充或覆盖默认映射）
+      param_descriptions: {}

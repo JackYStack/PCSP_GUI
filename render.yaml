@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: sandwich-panel-predictor-web
+    env: python
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: streamlit run scripts/streamlit_web_app.py --server.address 0.0.0.0 --server.port $PORT --server.headless true
+    autoDeploy: true

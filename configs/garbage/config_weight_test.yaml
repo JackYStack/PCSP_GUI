@@ -1,0 +1,940 @@
+data:
+  data_path: Dataset/data.csv
+  train_size: 0.8
+  val_size: 0.0
+  test_size: 0.2
+  random_state: 42
+  stratify:
+    enabled: true
+    target: CapacityComposite
+    strategy: quantile
+    n_bins: 10
+    min_per_bin: 2
+features:
+  input_features:
+  - InsulationThickness
+  - Width
+  - LeafThickness
+  - ConcreteStrength
+  - RebarRatio
+  - RebarArea
+  - S
+  - ConnectorStiffness
+  - ConnectorCapacity
+  target_features:
+  - StiffnessComposite
+  - CapacityComposite
+evaluation:
+  eval_per_output: true
+cross_validation:
+  n_splits: 5
+  n_repeats: 3
+  random_state: 42
+parallel:
+  n_jobs_model: 4
+  n_jobs_cv: 5
+preprocessing:
+  scaling:
+    mode: both
+    whitelist_models:
+    - SVR
+    - MLP
+    - GPR
+    - ANN
+    - RNN
+    - CNN1D
+    - TabNet
+    blacklist_models:
+    - RandomForest
+    - DecisionTree
+    - ExtraTrees
+    - GBRT
+    - XGB
+    - LightGBM
+    - CatBoost
+    - Stacking
+    default: false
+models:
+  svr:
+    name: SVR
+    enabled: false
+    params:
+      kernel: rbf
+      C: 10.0
+      epsilon: 0.01
+      gamma: scale
+    stacking_params:
+      kernel: rbf
+      C: 5.0
+      epsilon: 0.02
+      gamma: scale
+  random_forest:
+    name: RandomForest
+    enabled: true
+    params:
+      n_estimators: 250
+      random_state: 42
+      n_jobs: -1
+      max_depth: 37
+      min_samples_split: 2
+      min_samples_leaf: 1
+      max_features: sqrt
+  decision_tree:
+    name: DecisionTree
+    enabled: true
+    params:
+      criterion: squared_error
+      splitter: best
+      max_depth: 13
+      min_samples_split: 4
+      min_samples_leaf: 2
+      random_state: 42
+  extra_trees:
+    name: ExtraTrees
+    enabled: true
+    params:
+      n_estimators: 440
+      random_state: 42
+      n_jobs: -1
+      max_features: sqrt
+      max_depth: 37
+      min_samples_split: 2
+      min_samples_leaf: 1
+  xgboost:
+    name: XGB
+    enabled: true
+    params:
+      n_estimators: 500
+      random_state: 42
+      n_jobs: -1
+      subsample: 0.8057826197130205
+      colsample_bytree: 0.6338112104476377
+      colsample_bylevel: 1.0
+      colsample_bynode: 1.0
+      objective: reg:squarederror
+      tree_method: hist
+      max_depth: 9
+      learning_rate: 0.02764116641218907
+      gamma: 0.47001510005009456
+      reg_alpha: 1.828682919721209e-08
+      reg_lambda: 1.1257838439079406
+    stacking_params:
+      n_estimators: 200
+      random_state: 42
+      n_jobs: 4
+      subsample: 0.8
+      colsample_bytree: 0.8
+      objective: reg:squarederror
+      tree_method: hist
+      max_depth: 4
+      learning_rate: 0.1
+      gamma: 0.0
+      reg_alpha: 0.0
+      reg_lambda: 1.0
+  gbrt:
+    name: GBRT
+    enabled: true
+    params:
+      n_estimators: 150
+      learning_rate: 0.07673979040147029
+      max_depth: 4
+      subsample: 0.7148113915921509
+      random_state: 42
+      min_samples_leaf: 4
+      min_samples_split: 6
+  lightgbm:
+    name: LightGBM
+    enabled: true
+    params:
+      n_estimators: 550
+      random_state: 42
+      n_jobs: -1
+      learning_rate: 0.1784103161211982
+      num_leaves: 151
+      max_depth: 11
+      min_child_samples: 21
+      subsample: 0.8142189505678754
+      colsample_bytree: 0.6723666909530455
+      verbose: -1
+      reg_alpha: 0.000111499500017739
+      reg_lambda: 0.00044685095506341967
+    stacking_params:
+      n_estimators: 150
+      random_state: 42
+      n_jobs: 4
+      learning_rate: 0.1
+      num_leaves: 64
+      max_depth: 8
+      min_child_samples: 15
+      subsample: 0.9
+      colsample_bytree: 0.8
+      verbose: -1
+      reg_alpha: 0.0
+      reg_lambda: 1.0
+  catboost:
+    name: CatBoost
+    enabled: true
+    params:
+      iterations: 400
+      random_state: 42
+      learning_rate: 0.1205712628744377
+      depth: 10
+      l2_leaf_reg: 3.968793330444372
+      verbose: false
+      thread_count: 4
+      border_count: 64
+    stacking_params:
+      iterations: 180
+      random_state: 42
+      learning_rate: 0.15
+      depth: 4
+      l2_leaf_reg: 2.0
+      verbose: false
+      thread_count: 4
+      border_count: 64
+  gpr:
+    name: GPR
+    enabled: false
+    params:
+      kernel: null
+      alpha: 1.0e-12
+      normalize_y: true
+      n_restarts_optimizer: 2
+      random_state: 42
+  kriging:
+    name: Kriging
+    enabled: false
+    params:
+      method: ordinary
+      variogram_model: spherical
+      nlags: 6
+      weight: false
+      n_closest_points: 10
+      transform_strategy: pca
+      n_components: 2
+      scale: true
+    transform:
+      transform_strategy: pca
+      n_components: 2
+      scale: true
+      pca_kwargs:
+        random_state: 42
+  mlp:
+    name: MLP
+    enabled: false
+    params:
+      hidden_layer_sizes:
+      - 128
+      - 64
+      activation: relu
+      alpha: 0.0001
+      learning_rate_init: 0.001
+      max_iter: 2000
+      early_stopping: true
+      random_state: 42
+      batch_size: auto
+  ann:
+    name: ANN
+    enabled: true
+    params:
+      epochs: 200
+      batch_size: 64
+      learning_rate: 0.0009707707123245875
+      weight_decay: 1.0e-05
+      hidden_units:
+      - 128
+      - 64
+      dropout: 0.3867357215219584
+      activation: relu
+      patience: 25
+      val_fraction: 0.15
+      random_state: 42
+  rnn:
+    name: RNN
+    enabled: false
+    params:
+      epochs: 200
+      batch_size: 64
+      learning_rate: 0.001
+      weight_decay: 1.0e-05
+      hidden_size: 128
+      num_layers: 2
+      dropout: 0.1
+      bidirectional: false
+      rnn_type: lstm
+      patience: 25
+      val_fraction: 0.15
+      random_state: 42
+  cnn1d:
+    name: CNN1D
+    enabled: false
+    params:
+      epochs: 200
+      batch_size: 64
+      learning_rate: 0.001
+      weight_decay: 0.0001
+      conv_channels:
+      - 32
+      - 64
+      kernel_size: 3
+      hidden_dim: 128
+      dropout: 0.2
+      patience: 20
+      val_fraction: 0.15
+      random_state: 42
+  tabnet:
+    name: TabNet
+    enabled: false
+    params:
+      n_d: 16
+      n_a: 16
+      n_steps: 4
+      gamma: 1.5
+      lambda_sparse: 0.0001
+      learning_rate: 0.002
+      weight_decay: 5.0e-05
+      momentum: 0.02
+      n_independent: 2
+      n_shared: 2
+      epochs: 200
+      batch_size: 512
+      virtual_batch_size: 128
+      patience: 30
+      eval_fraction: 0.2
+      random_state: 42
+  stacking:
+    name: Stacking
+    enabled: true
+    base_models:
+    - GBRT
+    - XGB
+    - CatBoost
+    meta_model: ANN
+    params:
+      cv: 4
+      passthrough: false
+      n_jobs: -1
+hyperparameter_optimization:
+  enabled: true
+  n_trials: 200
+  timeout: null
+  n_jobs: 12
+  cv_folds: 5
+  target: null
+  target_weights: null
+  model_target_weights: {}
+  study_name: tuning
+  direction: maximize
+  metric: r2
+  model_metrics:
+    RandomForest: r2
+    DecisionTree: r2
+    ExtraTrees: r2
+    SVR: r2
+    MLP: r2
+    ANN: r2
+    RNN: r2
+    XGB: r2
+    GBRT: r2
+    LightGBM: r2
+    CatBoost: r2
+    CNN1D: r2
+    GPR: r2
+    Kriging: r2
+    TabNet: r2
+    Stacking: r2
+  model_directions:
+    RandomForest: maximize
+    DecisionTree: maximize
+    ExtraTrees: maximize
+    SVR: maximize
+    MLP: maximize
+    ANN: maximize
+    RNN: maximize
+    XGB: maximize
+    GBRT: maximize
+    LightGBM: maximize
+    CatBoost: maximize
+    CNN1D: maximize
+    GPR: maximize
+    Kriging: maximize
+    TabNet: maximize
+    Stacking: maximize
+  model_cv_folds:
+    Stacking: cv_folds
+  model_n_trials:
+    Stacking: n_trials
+  model_timeouts:
+    Stacking: 21600
+  model_n_jobs:
+    Stacking: 1
+    CatBoost: 1
+  directions:
+    default:
+    - minimize
+    - minimize
+    per_model: {}
+  sampler:
+    type: motpe
+    params:
+      seed: 42
+      multivariate: true
+      group: true
+  save_study: true
+  optimize_models:
+  - RandomForest
+  - DecisionTree
+  - ExtraTrees
+  - ANN
+  - XGB
+  - GBRT
+  - LightGBM
+  - CatBoost
+  - Stacking
+  search_spaces:
+    RandomForest:
+      n_estimators:
+        type: int
+        low: 100
+        high: 400
+        step: 50
+      max_depth:
+        type: int
+        low: 5
+        high: 40
+        step: 1
+      min_samples_split:
+        type: int
+        low: 2
+        high: 10
+        step: 1
+      min_samples_leaf:
+        type: int
+        low: 1
+        high: 4
+        step: 1
+      max_features:
+        choices:
+        - sqrt
+        - log2
+    DecisionTree:
+      max_depth:
+        type: int
+        low: 3
+        high: 30
+        step: 1
+      min_samples_split:
+        type: int
+        low: 2
+        high: 10
+        step: 1
+      min_samples_leaf:
+        type: int
+        low: 1
+        high: 5
+        step: 1
+    GBRT:
+      n_estimators:
+        type: int
+        low: 100
+        high: 500
+        step: 25
+      learning_rate:
+        type: float
+        low: 0.01
+        high: 0.2
+        log: false
+      max_depth:
+        type: int
+        low: 2
+        high: 6
+        step: 1
+      subsample:
+        type: float
+        low: 0.6
+        high: 1.0
+      min_samples_split:
+        type: int
+        low: 2
+        high: 6
+      min_samples_leaf:
+        type: int
+        low: 1
+        high: 4
+    ExtraTrees:
+      n_estimators:
+        type: int
+        low: 100
+        high: 500
+        step: 20
+      max_depth:
+        type: int
+        low: 5
+        high: 40
+        step: 1
+      min_samples_split:
+        type: int
+        low: 2
+        high: 10
+        step: 1
+      min_samples_leaf:
+        type: int
+        low: 1
+        high: 4
+        step: 1
+      max_features:
+        choices:
+        - sqrt
+        - log2
+    SVR:
+      C:
+        type: float
+        low: 0.01
+        high: 100.0
+        log: true
+      epsilon:
+        type: float
+        low: 0.001
+        high: 0.1
+        log: true
+      gamma:
+        choices:
+        - scale
+        - auto
+      kernel:
+        choices:
+        - rbf
+        - linear
+    MLP:
+      hidden_layer_sizes:
+        choices:
+        - - 64
+        - - 128
+        - - 64
+          - 32
+        - - 128
+          - 64
+        - - 128
+          - 64
+          - 32
+        - - 256
+          - 128
+      activation:
+        choices:
+        - relu
+        - tanh
+      alpha:
+        type: float
+        low: 1.0e-05
+        high: 0.01
+        log: true
+      learning_rate_init:
+        type: float
+        low: 0.0001
+        high: 0.01
+        log: true
+      batch_size:
+        type: int
+        low: 32
+        high: 256
+        step: 32
+    ANN:
+      hidden_units:
+        choices:
+        - - 128
+          - 64
+        - - 256
+          - 128
+          - 64
+        - - 256
+          - 128
+          - 64
+          - 32
+      learning_rate:
+        type: float
+        low: 0.0005
+        high: 0.005
+        log: true
+      dropout:
+        type: float
+        low: 0.0
+        high: 0.4
+      batch_size:
+        type: int
+        low: 32
+        high: 128
+        step: 32
+    RNN:
+      hidden_size:
+        type: int
+        low: 64
+        high: 256
+        step: 32
+      num_layers:
+        type: int
+        low: 1
+        high: 4
+        step: 1
+      dropout:
+        type: float
+        low: 0.0
+        high: 0.4
+      learning_rate:
+        type: float
+        low: 0.0005
+        high: 0.005
+        log: true
+      batch_size:
+        type: int
+        low: 32
+        high: 128
+        step: 32
+    XGB:
+      n_estimators:
+        type: int
+        low: 100
+        high: 600
+        step: 50
+      max_depth:
+        type: int
+        low: 3
+        high: 9
+        step: 1
+      learning_rate:
+        type: float
+        low: 0.01
+        high: 0.3
+        log: true
+      subsample:
+        type: float
+        low: 0.5
+        high: 1.0
+      colsample_bytree:
+        type: float
+        low: 0.5
+        high: 1.0
+      gamma:
+        type: float
+        low: 0.0
+        high: 0.5
+      reg_alpha:
+        type: float
+        low: 1.0e-08
+        high: 1.0
+        log: true
+      reg_lambda:
+        type: float
+        low: 0.001
+        high: 10.0
+        log: true
+    LightGBM:
+      n_estimators:
+        type: int
+        low: 100
+        high: 600
+        step: 50
+      num_leaves:
+        type: int
+        low: 31
+        high: 255
+        step: 8
+      max_depth:
+        type: int
+        low: 3
+        high: 12
+        step: 1
+      learning_rate:
+        type: float
+        low: 0.005
+        high: 0.2
+        log: true
+      min_child_samples:
+        type: int
+        low: 5
+        high: 50
+        step: 1
+      subsample:
+        type: float
+        low: 0.5
+        high: 1.0
+      colsample_bytree:
+        type: float
+        low: 0.5
+        high: 1.0
+      reg_alpha:
+        type: float
+        low: 1.0e-08
+        high: 1.0
+        log: true
+      reg_lambda:
+        type: float
+        low: 0.0001
+        high: 10.0
+        log: true
+    CatBoost:
+      iterations:
+        type: int
+        low: 200
+        high: 800
+        step: 50
+      depth:
+        type: int
+        low: 4
+        high: 10
+        step: 1
+      learning_rate:
+        type: float
+        low: 0.01
+        high: 0.3
+        log: true
+      l2_leaf_reg:
+        type: float
+        low: 1.0
+        high: 10.0
+        log: true
+      border_count:
+        type: int
+        low: 32
+        high: 255
+        step: 16
+    CNN1D:
+      conv_channels:
+        choices:
+        - - 32
+          - 64
+        - - 64
+          - 64
+        - - 64
+          - 128
+      kernel_size:
+        type: int
+        low: 3
+        high: 7
+        step: 2
+      hidden_dim:
+        type: int
+        low: 64
+        high: 256
+        step: 32
+      dropout:
+        type: float
+        low: 0.05
+        high: 0.5
+      learning_rate:
+        type: float
+        low: 0.0003
+        high: 0.003
+        log: true
+      weight_decay:
+        type: float
+        low: 1.0e-05
+        high: 0.001
+        log: true
+      batch_size:
+        type: int
+        low: 32
+        high: 128
+        step: 32
+      epochs: 200
+      patience: 20
+    TabNet:
+      n_d:
+        type: int
+        low: 8
+        high: 32
+        step: 2
+      n_steps:
+        type: int
+        low: 3
+        high: 6
+        step: 1
+      gamma:
+        type: float
+        low: 1.0
+        high: 2.5
+      lambda_sparse:
+        type: float
+        low: 1.0e-06
+        high: 0.001
+        log: true
+      learning_rate:
+        type: float
+        low: 0.0005
+        high: 0.005
+        log: true
+      weight_decay:
+        type: float
+        low: 1.0e-06
+        high: 0.001
+        log: true
+      batch_size:
+        type: int
+        low: 256
+        high: 1024
+        step: 64
+      virtual_batch_size:
+        type: int
+        low: 64
+        high: 256
+        step: 32
+      patience: 30
+      epochs: 200
+    Stacking:
+      base_models:
+        choices:
+        - - GBRT
+          - XGB
+        - - GBRT
+          - LightGBM
+        - - GBRT
+          - CatBoost
+        - - GBRT
+          - ANN
+        - - XGB
+          - LightGBM
+        - - XGB
+          - CatBoost
+        - - XGB
+          - ANN
+        - - LightGBM
+          - CatBoost
+        - - LightGBM
+          - ANN
+        - - CatBoost
+          - ANN
+        - - GBRT
+          - XGB
+          - LightGBM
+        - - GBRT
+          - XGB
+          - CatBoost
+        - - GBRT
+          - XGB
+          - ANN
+        - - GBRT
+          - LightGBM
+          - CatBoost
+        - - GBRT
+          - LightGBM
+          - ANN
+        - - GBRT
+          - CatBoost
+          - ANN
+        - - XGB
+          - LightGBM
+          - CatBoost
+        - - XGB
+          - LightGBM
+          - ANN
+        - - XGB
+          - CatBoost
+          - ANN
+        - - LightGBM
+          - CatBoost
+          - ANN
+        - - GBRT
+          - XGB
+          - LightGBM
+          - CatBoost
+        - - GBRT
+          - XGB
+          - LightGBM
+          - ANN
+        - - GBRT
+          - XGB
+          - CatBoost
+          - ANN
+        - - GBRT
+          - LightGBM
+          - CatBoost
+          - ANN
+        - - XGB
+          - LightGBM
+          - CatBoost
+          - ANN
+        - - GBRT
+          - XGB
+          - LightGBM
+          - CatBoost
+          - ANN
+      meta_model:
+        choices:
+        - GBRT
+        - XGB
+        - LightGBM
+        - CatBoost
+        - ANN
+      cv:
+        type: int
+        low: 3
+        high: 8
+        step: 1
+      passthrough:
+        choices:
+        - true
+        - false
+      n_jobs:
+        choices:
+        - -1
+        - 4
+        - 8
+    GPR:
+      alpha:
+        type: float
+        low: 1.0e-12
+        high: 1.0e-06
+        log: true
+      normalize_y:
+        choices:
+        - true
+        - false
+      n_restarts_optimizer:
+        type: int
+        low: 0
+        high: 5
+        step: 1
+    Kriging:
+      method:
+        choices:
+        - ordinary
+        - universal
+      variogram_model:
+        choices:
+        - spherical
+        - exponential
+        - gaussian
+        - linear
+      nlags:
+        type: int
+        low: 4
+        high: 12
+        step: 1
+      weight:
+        choices:
+        - true
+        - false
+      transform:
+        n_components:
+          type: int
+          low: 2
+          high: 4
+          step: 1
+        scale:
+          choices:
+          - true
+          - false
+shap:
+  enabled: true
+  sample_size: 500
+output:
+  models_dir: models
+  plots_dir: plots
+  evaluation_dir: evaluation
+  predictions_dir: predictions
+  shap_dir: shap_values
+  results_dir: results
+  optuna_dir: optuna_studies
+logging:
+  level: INFO
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  file: logs/training.log

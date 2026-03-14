@@ -1,0 +1,50 @@
+_cv_defaults:
+  n_splits: 5
+  shuffle: true
+  random_state: 42
+randomforest:
+  n_estimators: 85
+  max_depth: 13
+  random_state: 42
+xgboost:
+  n_estimators: 252
+  max_depth: 10
+  learning_rate: 0.10286798765853537
+  random_state: 42
+mlp:
+  hidden_layer_sizes:
+  - 155
+  - 97
+  alpha: 0.013112814592929305
+  random_state: 42
+  max_iter: 1000
+extratrees:
+  n_estimators: 278
+  max_depth: 11
+  random_state: 42
+lightgbm:
+  n_estimators: 219
+  learning_rate: 0.0395300387831358
+  num_leaves: 193
+  max_depth: 5
+  random_state: 42
+catboost:
+  iterations: 213
+  learning_rate: 0.0034661494798518965
+  depth: 9
+  random_state: 42
+svr:
+  C: 14.013177007269302
+  kernel: linear
+  gamma: auto
+tabnet:
+  n_d: 14
+  n_a: 17
+  n_steps: 8
+  gamma: 1.2241831728292525
+  random_state: 42
+1d-cnn:
+  filters: 32
+  kernel_size: 4
+  dense_units: 200
+  learning_rate: 0.0053220042829655876

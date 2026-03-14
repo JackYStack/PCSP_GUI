@@ -1,0 +1,1000 @@
+# ========================================
+# 夹心板智能设计 - 机器学习配置文件
+# ========================================
+
+# 数据配置
+data:
+  data_path: "Dataset/data_updated_drop.csv"
+  train_size: 0.8
+  val_size: 0.0
+  test_size: 0.2
+  random_state: 42
+  # 是否重新划分数据集（true=从原始数据划分并保存；false=读取自定义 CSV）
+  split_dataset: true 
+  # 自定义训练/验证/测试集路径（相对项目根目录或绝对路径）
+  split_paths:
+    train: "Dataset/splits/train.csv"
+    val: "Dataset/splits/val.csv"
+    test: "Dataset/splits/test.csv"
+  stratify:
+    enabled: true
+    target: "CapacityComposite"
+    strategy: "quantile"   # quantile(等频分箱) / uniform(等宽分箱)
+    n_bins: 10
+    min_per_bin: 2
+
+# 特征与目标列
+features:
+  input_features:
+  - InsulationThickness
+  - Width
+#  - TotalThickness
+  - LeafThickness
+  - ConcreteStrength
+#  - Ec
+#  - x1
+#  - F1
+#  - x2
+#  - x3
+  - RebarRatio
+#  - RebarArea
+#  - SteelYieldStrength*RebarArea
+#  - fc*Width
+#  - ConnectorK
+#  - ConnectorF
+  - S
+#  - n
+  - ConnectorStiffness
+  - ConnectorCapacity
+  # NOTE: 其余候选特征（如x1、fc*Width等）保留在历史版本，可按需恢复
+  target_features:
+  - StiffnessComposite
+  - CapacityComposite
+
+evaluation:
+  eval_per_output: true
+
+# 交叉验证配置
+cross_validation:
+  n_splits: 5
+  n_repeats: 3
+  random_state: 42
+
+# 并行计算配置
+parallel:
+  n_jobs_model: 4
+  n_jobs_cv: 5
+
+# 特征缩放策略：仅对需要尺度的模型做 StandardScaler
+preprocessing:
+  scaling:
+    mode: both
+    whitelist_models:
+    - SVR
+    - MLP
+    - GPR
+    - ANN
+    - RNN
+    - CNN1D
+    - TabNet
+    # Kriging 默认由其 wrapper 内部 scale 参数控制（避免双重缩放）
+    blacklist_models:
+    - RandomForest
+    - DecisionTree
+    - ExtraTrees
+    - GBRT
+    - XGB
+    - LightGBM
+    - CatBoost
+    - Stacking
+    default: false
+
+# 模型超参数配置
+models:
+  svr:
+    name: "SVR"
+    enabled: true
+    params:
+      kernel: "rbf"
+      C: 10.0
+      epsilon: 0.01
+      gamma: "scale"
+    stacking_params:      # NOTE: 与config_optimized保持一致的Stacking专用设置
+      kernel: "rbf"
+      C: 5.0
+      epsilon: 0.02
+      gamma: "scale"
+
+  random_forest:
+    name: "RandomForest"
+    enabled: true
+    params:
+      n_estimators: 200
+      random_state: 42
+      n_jobs: -1
+      max_depth: null
+      min_samples_split: 2
+      min_samples_leaf: 1
+
+  decision_tree:
+    name: "DecisionTree"
+    enabled: true
+    params:
+      criterion: "squared_error"
+      splitter: "best"
+      max_depth: null
+      min_samples_split: 2
+      min_samples_leaf: 1
+      random_state: 42
+
+  extra_trees:
+    name: "ExtraTrees"
+    enabled: true
+    params:
+      n_estimators: 200
+      random_state: 42
+      n_jobs: -1
+      max_features: "sqrt"
+      max_depth: null
+      min_samples_split: 2
+      min_samples_leaf: 1
+
+  xgboost:
+    name: "XGB"
+    enabled: true
+    params:
+      n_estimators: 300
+      random_state: 42
+      n_jobs: -1
+      subsample: 0.8
+      colsample_bytree: 0.8
+      colsample_bylevel: 1.0
+      colsample_bynode: 1.0
+      objective: "reg:squarederror"
+      tree_method: "hist"
+      max_depth: 6
+      learning_rate: 0.05
+    stacking_params:      # NOTE: Stacking阶段使用更轻量配置
+      n_estimators: 200
+      random_state: 42
+      n_jobs: 4
+      subsample: 0.8
+      colsample_bytree: 0.8
+      objective: "reg:squarederror"
+      tree_method: "hist"
+      max_depth: 4
+      learning_rate: 0.1
+      gamma: 0.0
+      reg_alpha: 0.0
+      reg_lambda: 1.0
+
+  gbrt:
+    name: "GBRT"
+    enabled: true
+    params:
+      n_estimators: 300
+      learning_rate: 0.05
+      max_depth: 3
+      subsample: 1.0
+      random_state: 42
+
+  lightgbm:
+    name: "LightGBM"
+    enabled: true
+    params:
+      n_estimators: 300
+      random_state: 42
+      n_jobs: -1
+      learning_rate: 0.05
+      num_leaves: 63
+      max_depth: -1
+      min_child_samples: 20
+      subsample: 0.8
+      colsample_bytree: 0.8
+      verbose: -1
+    stacking_params:
+      n_estimators: 150
+      random_state: 42
+      n_jobs: 4
+      learning_rate: 0.1
+      num_leaves: 64
+      max_depth: 8
+      min_child_samples: 15
+      subsample: 0.9
+      colsample_bytree: 0.8
+      verbose: -1
+      reg_alpha: 0.0
+      reg_lambda: 1.0
+
+  catboost:
+    name: "CatBoost"
+    enabled: true
+    params:
+      iterations: 500 # 增加迭代次数以提升性能
+      random_state: 42
+      learning_rate: 0.05
+      depth: 6
+      l2_leaf_reg: 3
+      verbose: false
+      thread_count: 4        # 限制CatBoost单次训练占用的CPU线程数，避免与Optuna并行冲突
+      border_count: 128
+    stacking_params:
+      iterations: 180
+      random_state: 42
+      learning_rate: 0.15
+      depth: 4
+      l2_leaf_reg: 2.0
+      verbose: false
+      thread_count: 4
+      border_count: 64
+
+  gpr:
+    name: "GPR"
+    enabled: false
+    params:
+      kernel: null
+      alpha: 1.0e-12
+      normalize_y: true
+      n_restarts_optimizer: 2
+      random_state: 42
+
+  kriging:
+    name: "Kriging"
+    enabled: false
+    params:
+      method: "ordinary"
+      variogram_model: "spherical"
+      nlags: 6
+      weight: false
+      n_closest_points: 10
+      transform_strategy: "pca"
+      n_components: 2
+      scale: true
+    transform:
+      transform_strategy: "pca"
+      n_components: 2
+      scale: true
+      pca_kwargs:
+        random_state: 42
+
+  mlp:
+    name: "MLP"
+    enabled: false
+    params:
+      hidden_layer_sizes:
+        - 128
+        - 64
+      activation: "relu"
+      alpha: 0.0001
+      learning_rate_init: 0.001
+      max_iter: 2000
+      early_stopping: true
+      random_state: 42
+      batch_size: "auto"
+
+  ann:
+    name: "ANN"
+    enabled: true
+    params:
+      epochs: 200
+      batch_size: 64
+      learning_rate: 0.001
+      weight_decay: 0.00001
+      hidden_units:
+        - 256
+        - 128
+        - 64
+      dropout: 0.1
+      activation: "relu"
+      patience: 25
+      val_fraction: 0.15
+      random_state: 42
+
+  rnn:
+    name: "RNN"
+    enabled: false
+    params:
+      epochs: 200
+      batch_size: 64
+      learning_rate: 0.001
+      weight_decay: 0.00001
+      hidden_size: 128
+      num_layers: 2
+      dropout: 0.1
+      bidirectional: false
+      rnn_type: "lstm"
+      patience: 25
+      val_fraction: 0.15
+      random_state: 42
+
+  cnn1d:
+    name: "CNN1D"
+    enabled: false
+    params:
+      epochs: 200
+      batch_size: 64
+      learning_rate: 0.001
+      weight_decay: 0.0001
+      conv_channels:
+        - 32
+        - 64
+      kernel_size: 3
+      hidden_dim: 128
+      dropout: 0.2
+      patience: 20
+      val_fraction: 0.15
+      random_state: 42
+
+  tabnet:
+    # 类别: 深度学习 / 表格数据网络
+    name: "TabNet"
+    enabled: false
+    params:
+      n_d: 16
+      n_a: 16
+      n_steps: 4
+      gamma: 1.5
+      lambda_sparse: 0.0001
+      learning_rate: 0.002
+      weight_decay: 0.00005
+      momentum: 0.02
+      n_independent: 2
+      n_shared: 2
+      epochs: 200
+      batch_size: 512
+      virtual_batch_size: 128
+      patience: 30
+      eval_fraction: 0.2
+      random_state: 42
+
+  stacking:
+    # 类别: 集成学习 / Stacking 元学习
+    name: "Stacking"
+    enabled: true
+    base_models:
+      - LightGBM   # NOTE: 顺序与config_optimized一致，便于复现调优方案
+      - CatBoost
+      - XGB
+      - ANN
+    meta_model: "ANN"
+    params:
+      cv: 2         # NOTE: 降低Stacking交叉验证开销，策略来自config_optimized
+      passthrough: false
+      n_jobs: 2
+
+# 超参数优化配置 (Optuna)
+hyperparameter_optimization:
+  enabled: true           # 是否启用超参数优化
+  n_trials: 200            # 优化试验次数
+  timeout: null           # 超时时间(秒), null表示不限制
+  n_jobs: 12               # 并行试验数
+  cv_folds: 5             # 优化时使用的交叉验证折数
+  # 训练时是否读取 optuna_studies 的指定 trials 参数覆盖模型超参数
+  use_trials_params: false
+  # 读取 trials 的目录(默认使用 output.optuna_dir)
+  trials_dir: null
+  # 指定各模型使用的 trial 编号，例如: {XGB: 12, LightGBM: 5, Stacking: 20}
+  trials_selection: {}
+  target: null            # 优化目标输出: null=多输出等权平均; 也可填 0/1 或目标名(如 CapacityComposite)
+  target_weights: {StiffnessComposite:0.2, CapacityComposite:0.8}   # 多输出加权优化: 例 [0.3, 0.7] 或 {StiffnessComposite:0.3, CapacityComposite:0.7}; 与 target 二选一
+  model_target_weights: {}  # 可选：按模型覆盖权重，如 {XGB: [0.2, 0.8], Stacking: {CapacityComposite: 0.9, StiffnessComposite: 0.1}}
+  study_name: "tuning"  # Optuna study名称
+  direction: "maximize"   # 优化方向: maximize(最大化R²) 或 minimize
+  metric: "r2"            # 优化指标: r2, neg_mae, neg_rmse，neg_mse, neg_log_loss
+  model_metrics:          # 各模型的优化指标
+    RandomForest: "r2"
+    DecisionTree: "r2"
+    ExtraTrees: "r2"
+    SVR: "r2"
+    MLP: "r2"
+    ANN: "r2"
+    RNN: "r2"
+    XGB: "r2"
+    GBRT: "r2"
+    LightGBM: "r2"
+    CatBoost: "r2"
+    CNN1D: "r2"
+    GPR: "r2"
+    Kriging: "r2"
+    TabNet: "r2"
+    Stacking: "r2"
+  model_directions:   # 各模型的优化方向: maximize(最大化R²) 或 minimize
+    RandomForest: "maximize"
+    DecisionTree: "maximize"
+    ExtraTrees: "maximize"
+    SVR: "maximize"
+    MLP: "maximize"
+    ANN: "maximize"
+    RNN: "maximize"
+    XGB: "maximize"
+    GBRT: "maximize"
+    LightGBM: "maximize"
+    CatBoost: "maximize"
+    CNN1D: "maximize"
+    GPR: "maximize"
+    Kriging: "maximize"
+    TabNet: "maximize"
+    Stacking: "maximize"
+  model_cv_folds:     # NOTE: Stacking单独降低CV折数（同步config_optimized策略）
+    Stacking: 3  # Stacking使用与整体相同的折数
+  model_n_trials:
+    Stacking: n_trials   # Stacking使用与整体相同的试验次数
+  model_timeouts:
+    Stacking: null  # Stacking单独设置超时
+  model_n_jobs:    # NOTE: CatBoost单独设置为1，避免与内部多线程冲突
+    Stacking: 1
+    CatBoost: 1   # CatBoost试验串行运行，避免与内部多线程叠加
+  directions:
+    # default: (可选) 单模型多目标时的默认方向列表; 示例 ["minimize", "minimize"]. 单目标保持 null
+    default: ["minimize", "minimize"]
+    # per_model: (可选) 指定某模型的多目标方向覆盖; 示例 {"CNN1D": ["maximize", "minimize"]}
+    per_model: {}
+  sampler:
+    # type: 采样器类型，可填 "tpe" 或 "motpe" (大小写不敏感)
+    type: "motpe"
+    # params: 采样器附加参数; seed 控制随机种子, multivariate/group 推荐在 MOTPE 时设置为 true
+    params:
+      seed: 42
+      multivariate: true
+      group: true
+  plot_importance: false   # 是否绘制/计算参数重要性(大试验数时较慢)
+  max_importance_trials: 200  # 超过该试验数自动跳过重要性计算
+  save_study: true
+  # Stacking 候选池与组合控制：避免在 search_spaces 里手写 base_models 大量组合
+  # stacking_base_pool 若为空则使用默认候选池；也可填入想探索的基模型列表
+  stacking_base_pool: [GBRT, XGB, LightGBM, CatBoost, SVR, ANN , RandomForest, ExtraTrees]
+  stacking_min_models: 2
+  stacking_max_models: 5
+  # stacking_meta_pool 若为空则使用默认元模型候选池
+  stacking_meta_pool: [GBRT, XGB, LightGBM, CatBoost, SVR, ANN, RandomForest, ExtraTrees]
+
+  optimize_models:
+    - RandomForest
+    - DecisionTree
+    - ExtraTrees
+    - SVR
+#    - MLP
+    - ANN
+#    - RNN
+    - XGB
+    - GBRT
+    - LightGBM
+    - CatBoost
+#    - CNN1D
+#    - GPR
+#    - Kriging
+#    - TabNet
+    - Stacking
+  
+  # 各模型的超参数搜索空间
+  search_spaces:
+    RandomForest:
+      n_estimators:
+        type: int
+        low: 100
+        high: 400
+        step: 50
+      max_depth:
+        type: int
+        low: 5
+        high: 40
+        step: 1
+      min_samples_split:
+        type: int
+        low: 2
+        high: 10
+        step: 1
+      min_samples_leaf:
+        type: int
+        low: 1
+        high: 4
+        step: 1
+      max_features:
+        choices:
+          - sqrt
+          - log2
+
+    DecisionTree:
+      max_depth:
+        type: int
+        low: 3
+        high: 30
+        step: 1
+      min_samples_split:
+        type: int
+        low: 2
+        high: 10
+        step: 1
+      min_samples_leaf:
+        type: int
+        low: 1
+        high: 5
+        step: 1
+
+    GBRT:
+      n_estimators:
+        type: int
+        low: 100
+        high: 500
+        step: 25
+      learning_rate:
+        type: float
+        low: 0.01
+        high: 0.2
+        log: false
+      max_depth:
+        type: int
+        low: 2
+        high: 6
+        step: 1
+      subsample:
+        type: float
+        low: 0.6
+        high: 1.0
+      min_samples_split:
+        type: int
+        low: 2
+        high: 6
+      min_samples_leaf:
+        type: int
+        low: 1
+        high: 4
+
+    ExtraTrees:
+      n_estimators:
+        type: int
+        low: 100
+        high: 500
+        step: 20
+      max_depth:
+        type: int
+        low: 5
+        high: 40
+        step: 1
+      min_samples_split:
+        type: int
+        low: 2
+        high: 10
+        step: 1
+      min_samples_leaf:
+        type: int
+        low: 1
+        high: 4
+        step: 1
+      max_features:
+        choices:
+          - sqrt
+          - log2
+
+    SVR:
+      C:
+        type: float
+        low: 0.01
+        high: 100.0
+        log: true
+      epsilon:
+        type: float
+        low: 0.001
+        high: 0.1
+        log: true
+      gamma:
+        choices:
+          - scale
+          - auto
+      kernel:
+        choices:
+          - rbf
+          - linear
+
+    MLP:
+      hidden_layer_sizes:
+        choices:
+          - [64]
+          - [128]
+          - [64, 32]
+          - [128, 64]
+          - [128, 64, 32]
+          - [256, 128]
+      activation:
+        choices:
+          - relu
+          - tanh
+      alpha:
+        type: float
+        low: 1.0e-5
+        high: 1.0e-2
+        log: true
+      learning_rate_init:
+        type: float
+        low: 1.0e-4
+        high: 1.0e-2
+        log: true
+      batch_size:
+        type: int
+        low: 32
+        high: 256
+        step: 32
+
+    ANN:
+      hidden_units:
+        choices:
+          - [128, 64]
+          - [256, 128, 64]
+          - [256, 128, 64, 32]
+      learning_rate:
+        type: float
+        low: 5.0e-4
+        high: 5.0e-3
+        log: true
+      dropout:
+        type: float
+        low: 0.0
+        high: 0.4
+      batch_size:
+        type: int
+        low: 32
+        high: 128
+        step: 32
+
+    RNN:
+      hidden_size:
+        type: int
+        low: 64
+        high: 256
+        step: 32
+      num_layers:
+        type: int
+        low: 1
+        high: 4
+        step: 1
+      dropout:
+        type: float
+        low: 0.0
+        high: 0.4
+      learning_rate:
+        type: float
+        low: 5.0e-4
+        high: 5.0e-3
+        log: true
+      batch_size:
+        type: int
+        low: 32
+        high: 128
+        step: 32
+
+    XGB:
+      n_estimators:
+        type: int
+        low: 100
+        high: 600
+        step: 50
+      max_depth:
+        type: int
+        low: 3
+        high: 9
+        step: 1
+      learning_rate:
+        type: float
+        low: 0.01
+        high: 0.3
+        log: true
+      subsample:
+        type: float
+        low: 0.5
+        high: 1.0
+      colsample_bytree:
+        type: float
+        low: 0.5
+        high: 1.0
+      gamma:
+        type: float
+        low: 0.0
+        high: 0.5
+      reg_alpha:
+        type: float
+        low: 1.0e-8
+        high: 1.0
+        log: true
+      reg_lambda:
+        type: float
+        low: 1.0e-3
+        high: 10.0
+        log: true
+
+    LightGBM:
+      n_estimators:
+        type: int
+        low: 100
+        high: 600
+        step: 50
+      num_leaves:
+        type: int
+        low: 31
+        high: 255
+        step: 8
+      max_depth:
+        type: int
+        low: 3
+        high: 12
+        step: 1
+      learning_rate:
+        type: float
+        low: 0.005
+        high: 0.2
+        log: true
+      min_child_samples:
+        type: int
+        low: 5
+        high: 50
+        step: 1
+      subsample:
+        type: float
+        low: 0.5
+        high: 1.0
+      colsample_bytree:
+        type: float
+        low: 0.5
+        high: 1.0
+      reg_alpha:
+        type: float
+        low: 1.0e-8
+        high: 1.0
+        log: true
+      reg_lambda:
+        type: float
+        low: 1.0e-4
+        high: 10.0
+        log: true
+
+    CatBoost:
+      iterations:
+        type: int
+        low: 200
+        high: 800
+        step: 50
+      depth:
+        type: int
+        low: 4
+        high: 10
+        step: 1
+      learning_rate:
+        type: float
+        low: 0.01
+        high: 0.3
+        log: true
+      l2_leaf_reg:
+        type: float
+        low: 1.0
+        high: 10.0
+        log: true
+      border_count:
+        type: int
+        low: 32
+        high: 255
+        step: 16
+
+    CNN1D:
+      conv_channels:
+        choices:
+          - [32, 64]
+          - [64, 64]
+          - [64, 128]
+      kernel_size:
+        type: int
+        low: 3
+        high: 7
+        step: 2
+      hidden_dim:
+        type: int
+        low: 64
+        high: 256
+        step: 32
+      dropout:
+        type: float
+        low: 0.05
+        high: 0.5
+      learning_rate:
+        type: float
+        low: 0.0003
+        high: 0.003
+        log: true
+      weight_decay:
+        type: float
+        low: 1.0e-5
+        high: 1.0e-3
+        log: true
+      batch_size:
+        type: int
+        low: 32
+        high: 128
+        step: 32
+      epochs: 200
+      patience: 20
+
+    TabNet:
+      n_d:
+        type: int
+        low: 8
+        high: 32
+        step: 2
+      n_steps:
+        type: int
+        low: 3
+        high: 6
+        step: 1
+      gamma:
+        type: float
+        low: 1.0
+        high: 2.5
+      lambda_sparse:
+        type: float
+        low: 1.0e-6
+        high: 1.0e-3
+        log: true
+      learning_rate:
+        type: float
+        low: 0.0005
+        high: 0.005
+        log: true
+      weight_decay:
+        type: float
+        low: 1.0e-6
+        high: 1.0e-3
+        log: true
+      batch_size:
+        type: int
+        low: 256
+        high: 1024
+        step: 64
+      virtual_batch_size:
+        type: int
+        low: 64
+        high: 256
+        step: 32
+      patience: 30
+      epochs: 200
+
+    Stacking:
+      base_models:
+        choices:
+          # - [GBRT, XGB]
+          # - [GBRT, LightGBM]
+          # - [GBRT, CatBoost]
+          # - [GBRT, ANN]
+          # - [GBRT, SVR]
+          # - [XGB, LightGBM]
+          # - [XGB, CatBoost]
+          # - [XGB, ANN]
+          # - [XGB, SVR]
+          # - [LightGBM, CatBoost]
+          # - [LightGBM, ANN]
+          # - [LightGBM, SVR]
+          # - [CatBoost, ANN]
+          # - [CatBoost, SVR]
+          # - [ANN, SVR]
+          - [GBRT, XGB, LightGBM]
+          - [GBRT, XGB, CatBoost]
+          - [GBRT, XGB, ANN]
+          - [GBRT, XGB, SVR]
+          - [GBRT, LightGBM, CatBoost]
+          - [GBRT, LightGBM, ANN]
+          - [GBRT, LightGBM, SVR]
+          - [GBRT, CatBoost, ANN]
+          - [GBRT, CatBoost, SVR]
+          - [GBRT, ANN, SVR]
+          - [XGB, LightGBM, CatBoost]
+          - [XGB, LightGBM, ANN]
+          - [XGB, LightGBM, SVR]
+          - [XGB, CatBoost, ANN]
+          - [XGB, CatBoost, SVR]
+          - [XGB, ANN, SVR]
+          - [LightGBM, CatBoost, ANN]
+          - [LightGBM, CatBoost, SVR]
+          - [LightGBM, ANN, SVR]
+          - [CatBoost, ANN, SVR]
+          - [GBRT, XGB, LightGBM, CatBoost]
+          - [GBRT, XGB, LightGBM, ANN]
+          - [GBRT, XGB, LightGBM, SVR]
+          - [GBRT, XGB, CatBoost, ANN]
+          - [GBRT, XGB, CatBoost, SVR]
+          - [GBRT, LightGBM, CatBoost, ANN]
+          - [GBRT, LightGBM, CatBoost, SVR]
+          - [XGB, LightGBM, CatBoost, ANN]
+          - [XGB, LightGBM, CatBoost, SVR]
+          - [GBRT, XGB, LightGBM, CatBoost, SVR]
+          - [GBRT, XGB, LightGBM, ANN, SVR]
+          - [GBRT, XGB, CatBoost, ANN, SVR]
+          - [GBRT, LightGBM, CatBoost, ANN, SVR]
+          - [XGB, LightGBM, CatBoost, ANN, SVR]
+          - [GBRT, XGB, LightGBM, CatBoost, ANN]
+      meta_model:
+        choices:
+          - GBRT
+          - XGB
+          - LightGBM
+          - CatBoost
+          - SVR
+        #  - ANN
+      cv:
+        type: int
+        low: 3
+        high: 8
+        step: 1
+      passthrough: # 是否将原始特征传递给元模型
+        choices:
+          - true
+          - false
+      n_jobs:
+        choices:
+          - -1
+          - 4
+          - 8
+
+    GPR:
+      alpha:
+        type: float
+        low: 1.0e-12
+        high: 1.0e-6
+        log: true
+      normalize_y:
+        choices:
+          - true
+          - false
+      n_restarts_optimizer:
+        type: int
+        low: 0
+        high: 5
+        step: 1
+
+    Kriging:
+      method:
+        choices:
+          - ordinary
+          - universal
+      variogram_model:
+        choices:
+          - spherical
+          - exponential
+          - gaussian
+          - linear
+      nlags:
+        type: int
+        low: 4
+        high: 12
+        step: 1
+      weight:
+        choices:
+          - true
+          - false
+      transform:
+        n_components:
+          type: int
+          low: 2
+          high: 4
+          step: 1
+        scale:
+          choices:
+            - true
+            - false
+
+# SHAP分析配置
+shap:
+  enabled: true
+  sample_size: 500  # SHAP分析使用的样本数
+
+# 输出路径配置
+output:
+  models_dir: "models"
+  plots_dir: "plots"
+  evaluation_dir: "evaluation"
+  predictions_dir: "predictions"
+  shap_dir: "shap_values"
+  results_dir: "results"
+  splits_dir: "Dataset/splits"
+  optuna_dir: "optuna_studies"  # Optuna优化结果目录
+
+# 日志配置
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/training.log"
