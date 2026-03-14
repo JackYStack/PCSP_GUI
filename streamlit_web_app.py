@@ -8,6 +8,7 @@ Run:
 from __future__ import annotations
 
 import io
+import importlib.util
 import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -16,6 +17,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
+from sklearn.pipeline import Pipeline
 
 try:
     import yaml
@@ -24,6 +26,7 @@ except Exception:  # pragma: no cover
 
 
 APP_TITLE = "Sandwich Panel Predictor (Web)"
+EXCLUDED_BUILTIN_MODELS = {"composite_model.pkl"}
 
 FEATURE_META: Dict[str, Dict[str, float | str]] = {
     "Width": {"symbol": "W", "unit": "mm", "min": 300.00, "max": 600.00},
@@ -37,6 +40,30 @@ FEATURE_META: Dict[str, Dict[str, float | str]] = {
 }
 
 
+def load_gui_feature_meta() -> Dict[str, Dict[str, float | str]]:
+    """Load FEATURE_META from gui_predictor.py for behavior consistency.
+
+    Falls back to local FEATURE_META if import fails.
+    """
+    gui_file = project_root() / "scripts" / "gui_predictor.py"
+    if not gui_file.exists():
+        return FEATURE_META
+
+    try:
+        spec = importlib.util.spec_from_file_location("gui_predictor_module", str(gui_file))
+        if spec is None or spec.loader is None:
+            return FEATURE_META
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        meta = getattr(module, "FEATURE_META", None)
+        if isinstance(meta, dict) and meta:
+            return meta
+    except Exception:
+        return FEATURE_META
+
+    return FEATURE_META
+
+
 def project_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
@@ -47,6 +74,47 @@ def ensure_paths() -> None:
         p_str = str(p)
         if p_str not in sys.path:
             sys.path.insert(0, p_str)
+
+
+def _register_src_scaling_policy_compat() -> None:
+    """Register minimal compatibility module for unpickling old/new models.
+
+    Used when runtime cannot import `src.scaling_policy`.
+    """
+    import types
+
+    if "src.scaling_policy" in sys.modules:
+        return
+
+    src_module = sys.modules.get("src")
+    if src_module is None:
+        src_module = types.ModuleType("src")
+        sys.modules["src"] = src_module
+
+    scaling_module = types.ModuleType("src.scaling_policy")
+
+    class RegressorPipeline(Pipeline):
+        def _more_tags(self):  # pragma: no cover
+            tags = super()._more_tags()
+            tags = dict(tags) if isinstance(tags, dict) else {}
+            tags["estimator_type"] = "regressor"
+            return tags
+
+        def __sklearn_tags__(self):  # pragma: no cover
+            tags = super().__sklearn_tags__()
+            try:
+                if isinstance(tags, dict):
+                    new_tags = dict(tags)
+                    new_tags["estimator_type"] = "regressor"
+                    return new_tags
+                tags.estimator_type = "regressor"
+                return tags
+            except Exception:
+                return {"estimator_type": "regressor"}
+
+    setattr(scaling_module, "RegressorPipeline", RegressorPipeline)
+    setattr(src_module, "scaling_policy", scaling_module)
+    sys.modules["src.scaling_policy"] = scaling_module
 
 
 def read_features_from_config(config_path: Path) -> Tuple[List[str], List[str]]:
@@ -65,7 +133,14 @@ def read_features_from_config(config_path: Path) -> Tuple[List[str], List[str]]:
 @st.cache_resource(show_spinner=False)
 def load_model_from_file(model_file: str):
     ensure_paths()
-    obj = joblib.load(model_file)
+    try:
+        obj = joblib.load(model_file)
+    except ModuleNotFoundError as exc:
+        if "src" in str(exc):
+            _register_src_scaling_policy_compat()
+            obj = joblib.load(model_file)
+        else:
+            raise
     if isinstance(obj, dict):
         return {
             "model": obj.get("model"),
@@ -79,7 +154,15 @@ def load_model_from_file(model_file: str):
 def load_uploaded_model(uploaded_bytes: bytes):
     ensure_paths()
     buffer = io.BytesIO(uploaded_bytes)
-    obj = joblib.load(buffer)
+    try:
+        obj = joblib.load(buffer)
+    except ModuleNotFoundError as exc:
+        if "src" in str(exc):
+            _register_src_scaling_policy_compat()
+            buffer.seek(0)
+            obj = joblib.load(buffer)
+        else:
+            raise
     if isinstance(obj, dict):
         return {
             "model": obj.get("model"),
@@ -108,12 +191,13 @@ def main() -> None:
     st.title(APP_TITLE)
 
     root = project_root()
+    feature_meta = load_gui_feature_meta()
     models_dir = root / "models"
     cfg_features, cfg_targets = read_features_from_config(root / "configs" / "config_optimized.yaml")
     if not cfg_features:
         cfg_features, cfg_targets = read_features_from_config(root / "configs" / "config.yaml")
 
-    built_in_models = sorted([p for p in models_dir.glob("*.pkl") if p.name != "composite_model.pkl"])
+    built_in_models = sorted([p for p in models_dir.glob("*.pkl") if p.name not in EXCLUDED_BUILTIN_MODELS])
 
     with st.sidebar:
         st.header("Model Selection")
@@ -172,10 +256,10 @@ def main() -> None:
         cols = st.columns(2)
         values = {}
         for i, feature in enumerate(required_features):
-            meta = FEATURE_META.get(feature, {})
+            meta = feature_meta.get(feature, {})
             min_v = float(meta.get("min", 0.0))
             max_v = float(meta.get("max", 1.0))
-            default_v = (min_v + max_v) / 2 if feature in FEATURE_META else 0.0
+            default_v = (min_v + max_v) / 2 if feature in feature_meta else 0.0
             unit = str(meta.get("unit", ""))
             symbol = str(meta.get("symbol", ""))
             label = f"{display_name(feature)} ({symbol}, {unit})" if unit else display_name(feature)
